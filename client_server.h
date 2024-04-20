@@ -40,8 +40,6 @@ struct tank_srv_msg {
 #define TANK_CLNT_CMD_GREEN_LED		'2' // "2"
 #define TANK_CLNT_CMD_BLUE_LED		'3' // "3"
 #define TANK_CLNT_CMD_BUZZER		'4' // "4"
-#define TANK_CLNT_CMD_UNCONNECT		'q' // "q"
-#define TANK_CLNT_CMD_SHUTDOWN		'p' // "p"
 #define TANK_CLNT_CMD_CONNECT_CHEK	'0'
 
 struct tank_clnt_msg {

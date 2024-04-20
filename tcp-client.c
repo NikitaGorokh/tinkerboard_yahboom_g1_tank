@@ -199,11 +199,10 @@ no_data:
 		else if (strcmp(x, "3")==0)    c = TANK_CLNT_CMD_BLUE_LED;
 		else if (strcmp(x, "4")==0)    c = TANK_CLNT_CMD_BUZZER;
 		else if (strcmp(x, "q")==0)    goto endloop;
-		else if (strcmp(x, "p")==0)    c = TANK_CLNT_CMD_SHUTDOWN;
 		else c = '5';
 		if (c!='5') {
 		    retval = write(serv.fd, &c, 1);
-		    if ((retval != 1)||(strcmp(x, "p")==0)){
+		    if (retval != 1){
 			if (retval < 0) printf("write error: %s\n", strerror(errno));
 			goto endloop;
 		    };
