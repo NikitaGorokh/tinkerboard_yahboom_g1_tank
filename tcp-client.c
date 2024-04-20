@@ -215,5 +215,6 @@ endloop:
     kb_key_nonblock(&kb, 0);
     kb_key_echo(&kb, 1);
     close(serv.fd);
+    printf("\n");
     return 0;
 }

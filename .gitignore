@@ -1,3 +1,5 @@
 tank
+tcp-client
+*.gch
 *.o
 

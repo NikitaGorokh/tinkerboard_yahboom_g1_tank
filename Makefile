@@ -2,10 +2,13 @@
 CC = gcc
 CFLAGS = -Wall -W -g
 
-all:	tank
+all:	tank tcp-client
 
 tank:	unlock-io.o device.o track.o servo.o tank.o
 	$(CC) $(CFLAGS) -o $@ $^ -lgpiod
 
+tcp-client:	unlock-io.o tcp-client.o
+	$(CC) $(CFLAGS) -o $@ $^
+
 clean:
-	rm -f tank *.o
+	rm -f tank tcp-client *.o
