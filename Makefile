@@ -4,7 +4,7 @@ CFLAGS = -Wall -W -g
 
 all:	tank tcp-client
 
-tank:	unlock-io.o device.o track.o servo.o tank.o
+tank:	unlock-io.o device.o track.o servo.o tank.o sonic.o
 	$(CC) $(CFLAGS) -o $@ $^ -lgpiod
 
 tcp-client:	unlock-io.o tcp-client.o

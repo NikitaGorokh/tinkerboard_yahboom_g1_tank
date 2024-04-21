@@ -45,7 +45,7 @@ void servo_timer_action (struct device *dev, struct timespec *ts) {
 	struct servo_priv *priv = (struct servo_priv *) dev->priv;
 	
 	if (dev->state==DEV_STATE_STOPPED) return;
-	
+
 	if (dev->state==DEV_STATE_STARTING) {
 		dev->state=DEV_STATE_STARTED;
 		priv->loops = MAX_LOOPS;

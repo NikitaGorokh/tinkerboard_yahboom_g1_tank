@@ -89,22 +89,22 @@ int main(int argc, char *argv[]){
 	"MOVEMENT:\n"
 	" 'w'=forward_and_speedup 's'=backward_and_slowdown\n"
 	" 'a'=turn_left             'd'=turn_right\n"
-	"SONIC_ANGLE:\n"
-	" 'z'=turn_left             'c'=turn_right\n"
-	" 'x'=return_to_start_position\n"
 	"CAMERA_ANGLE_arrow_keys:\n"
 	" 'left'=turn_left          'right'=turn_right\n"
 	" 'up'=turn_гз              'down'=turn_down\n"
 	" '/'=return_to_start_position\n"
-	"LED\n"
+	"SONIC:\n"
+	" 'z'=turn_left             'c'=turn_right\n"
+	" 'x'=normal_position\n"
+	" '5'=multi_measurement	    '6'=one_measurement\n"
+	"LED:\n"
 	" '1'=red     '2'=green     '3'=blue\n"
 	" press key again to shutdown led\n"
 	"BUZZER:\n"
 	" '4'=updown\n"
 	" press key again to shutdown buzzer\n"
 	"EXIT:\n"
-	" 'q'=unconnect client\n"
-	" 'p'=shutdown tank program"
+	" 'q'=complete_program\n"
 	"__________________________________________________\n");
 
     while(1){
@@ -198,9 +198,11 @@ no_data:
 		else if (strcmp(x, "2")==0)    c = TANK_CLNT_CMD_GREEN_LED;
 		else if (strcmp(x, "3")==0)    c = TANK_CLNT_CMD_BLUE_LED;
 		else if (strcmp(x, "4")==0)    c = TANK_CLNT_CMD_BUZZER;
+		else if (strcmp(x, "5")==0)    c = TANK_CLNT_CMD_SONIC_MOD1;
+		else if (strcmp(x, "6")==0)    c = TANK_CLNT_CMD_SONIC_MOD0;
 		else if (strcmp(x, "q")==0)    goto endloop;
-		else c = '5';
-		if (c!='5') {
+		else c = '9';
+		if (c!='9') {
 		    retval = write(serv.fd, &c, 1);
 		    if (retval != 1){
 			if (retval < 0) printf("write error: %s\n", strerror(errno));

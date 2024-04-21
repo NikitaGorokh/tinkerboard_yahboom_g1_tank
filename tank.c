@@ -18,6 +18,7 @@
 #include "unlock-io.h"
 #include "track.h"
 #include "servo.h"
+#include "sonic.h"
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -54,6 +55,9 @@
 #define BLUE_LINE	11
 
 #define BUZZER_LINE	7
+
+#define SONIC_LINE_IN	17
+#define SONIC_LINE_OUT	18
 
 #define SERVO1_MIN	0
 #define SERVO1_MAX	160
@@ -146,6 +150,21 @@ int servo_setup (struct device *dev, int s_min, int s_max, int s_def, int s_line
 	return angle_servo_init (dev, s_min, s_max, s_def, line);
 }
 
+int sonic_setup (struct device *dev, struct gpiod_chip *chip){
+	struct gpiod_line *in, *out;
+	in = gpiod_chip_get_line(chip, SONIC_LINE_IN);
+	if (!in) {
+		printf ("get sonic IN error\n");
+		return -errno;
+	};
+	out = gpiod_chip_get_line(chip, SONIC_LINE_OUT);
+	if (!out) {
+		printf ("get sonic OUT error\n");
+		return -errno;
+	};
+	return sonic_init(dev, in, out);
+}
+
 void track_direction(char cmd, struct device *dev){
 	int r = track_get_speed_right (dev);
 	int l = track_get_speed_left (dev);
@@ -230,15 +249,24 @@ int key_phess_handle(char cmd, struct tanker *tank){
 		case TANK_CLNT_CMD_BUZZER:
 			led_set(tank->buzzer);
 			return 1;
+		case TANK_CLNT_CMD_SONIC_MOD0:
+			sonic_change_mode (&tank->dev[4], 0);
+			tank->dev[4].ops->start_request(&tank->dev[4]);
+			return 1;
+		case TANK_CLNT_CMD_SONIC_MOD1:
+			sonic_change_mode (&tank->dev[4], 1);
+			if (tank->dev[4].state == DEV_STATE_STOPPED) tank->dev[4].ops->start_request(&tank->dev[4]);
+			else tank->dev[4].ops->stop_request(&tank->dev[4]);
+			return 1;
 		default:
 			return 0;
 	}
 }
 
 void print_state(struct tanker *tank){
-	printf ("\rtrack_power [%+04d%%, %+04d%%], sonic [%+03d, %03dm], camera [%+04d, %+04d], led [%c%c%c], buzzer [%c]",
+	printf ("\rtrack_power [%+04d%%, %+04d%%], sonic [%+03d, %3dcm], camera [%+04d, %+04d], led [%c%c%c], buzzer [%c]",
 			100*track_get_speed_left (&tank->dev[0])/TRACK_PERIOD, 100*track_get_speed_right (&tank->dev[0])/TRACK_PERIOD,
-			angle_get (&tank->dev[1])-angle_def(&tank->dev[1]),0,
+			angle_get (&tank->dev[1])-angle_def(&tank->dev[1]),sonic_get_distance(&tank->dev[4]),
 			angle_get (&tank->dev[2])-angle_def(&tank->dev[2]), angle_get (&tank->dev[3])-angle_def(&tank->dev[3]),
 			gpiod_line_get_value(tank->red)==1?'R':'_', gpiod_line_get_value(tank->green)==1?'G':'_', 
 			gpiod_line_get_value(tank->blue)==1?'B':'_', gpiod_line_get_value(tank->buzzer)==0?'P':'_');
@@ -249,7 +277,7 @@ int main (int argc, char *argv[]) {
 	struct tanker tank;
 	struct device *dev;
 	int i, delay, ret, state=0;
-	tank.dev_cnt=4;
+	tank.dev_cnt=5;
 	struct gpiod_chip *chip5, *chip6, *chip7, *chip8;
 	struct kb_key kb;
 	char x[10];
@@ -432,13 +460,25 @@ int main (int argc, char *argv[]) {
 		return ret;
 	};
 	
-	for (i=1; i<tank.dev_cnt; i++){
+	for (i=1; i<tank.dev_cnt-1; i++){
 		dev = &tank.dev[i];
 		dev->ops->start_request(dev);
 	};
 	
-	int exit_tank=0;
+	dev = &tank.dev[4];
+	ret = sonic_setup(dev, chip7);
+	if (ret!=0) {
+		gpiod_chip_close (chip5);
+		gpiod_chip_close (chip6);
+		gpiod_chip_close (chip7);
+		gpiod_chip_close (chip8);
+		return ret;
+	};
 
+	int exit_tank=0;
+	int last_distance=-1;
+
+	tank_state.sonic_distance=htons(sonic_get_distance(&tank.dev[4]));
 	tank_state.right_speed=htons(100*track_get_speed_right (&tank.dev[0])/TRACK_PERIOD);
 	tank_state.left_speed=htons(100*track_get_speed_left (&tank.dev[0])/TRACK_PERIOD);
 	tank_state.sonik_servo_angle=angle_get (&tank.dev[1])-angle_def(&tank.dev[1]);
@@ -458,14 +498,15 @@ int main (int argc, char *argv[]) {
 		"MOVEMENT:\n"
 		" 'w'=forward_and_speedup 's'=backward_and_slowdown\n"
 		" 'a'=turn_left             'd'=turn_right\n"
-		"SONIC_ANGLE:\n"
-		" 'z'=turn_left             'c'=turn_right\n"
-		" 'x'=return_to_start_position\n"
 		"CAMERA_ANGLE_arrow_keys:\n"
 		" 'left'=turn_left          'right'=turn_right\n"
 		" 'up'=turn_гз              'down'=turn_down\n"
 		" '/'=return_to_start_position\n"
-		"LED\n"
+		"SONIC:\n"
+		" 'z'=turn_left             'c'=turn_right\n"
+		" 'x'=normal_position\n"
+		" '5'=multi_measurement	    '6'=one_measurement\n"
+		"LED:\n"
 		" '1'=red     '2'=green     '3'=blue\n"
 		" press key again to shutdown led\n"
 		"BUZZER:\n"
@@ -620,6 +661,11 @@ int main (int argc, char *argv[]) {
 			client[i].bytes=0;
 		};
 
+		if(sonic_get_distance(&tank.dev[4])!=last_distance){
+			last_distance=sonic_get_distance(&tank.dev[4]);
+			state=1;
+		}
+
 		if (exit_tank==1) break;
 		for(i=0; i<MAX_CONNECTION; i++){
 			if (client[i].fd==-1 || client[i].handshake!=1) continue;
@@ -645,7 +691,7 @@ int main (int argc, char *argv[]) {
 				}
 			}
 			if (state == 1) {
-				tank_state.sonic_distance=htons(0);
+				tank_state.sonic_distance=htons(sonic_get_distance(&tank.dev[4]));
 				tank_state.right_speed=htons(100*track_get_speed_right (&tank.dev[0])/TRACK_PERIOD);
 				tank_state.left_speed=htons(100*track_get_speed_left (&tank.dev[0])/TRACK_PERIOD);
 				tank_state.sonik_servo_angle=angle_get (&tank.dev[1])-angle_def(&tank.dev[1]);
